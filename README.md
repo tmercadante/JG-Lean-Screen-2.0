@@ -192,6 +192,46 @@ Make sure:
 
 This is an internal team project. For questions or issues, please contact the development team.
 
+## Docker Deployment
+
+You can run the application using Docker for a containerized deployment.
+
+### Using Docker Compose (Recommended)
+
+1. Make sure Docker and Docker Compose are installed on your system
+2. Set up your `.env` file with Supabase credentials
+3. Build and run the container:
+
+```bash
+docker-compose up -d
+```
+
+The application will be available at `http://localhost:3000`
+
+To stop the container:
+
+```bash
+docker-compose down
+```
+
+### Using Docker directly
+
+Build the image:
+
+```bash
+docker build -t lean-screen .
+```
+
+Run the container:
+
+```bash
+docker run -d -p 3000:80 --name lean-screen lean-screen
+```
+
+**Note:** The Docker build process requires your `.env` file to be present during the build. The environment variables are baked into the production build at build-time (this is how Vite works with environment variables).
+
+For production deployments, consider using build arguments or a CI/CD pipeline to inject environment variables securely.
+
 ## License
 
 Private - Internal Use Only
