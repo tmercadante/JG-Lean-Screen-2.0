@@ -11,7 +11,7 @@ export interface User {
 export interface ScreenTimeLog {
   id: string;
   user_id: string;
-  date: string;
+  week_start_date: string;
   minutes: number;
   notes: string | null;
   created_at: string;
@@ -34,7 +34,7 @@ export interface UserStreak {
   user_id: string;
   current_streak: number;
   longest_streak: number;
-  last_log_date: string | null;
+  last_log_week_start: string | null;
   created_at: string;
   updated_at: string;
 }

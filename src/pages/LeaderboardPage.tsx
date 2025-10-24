@@ -42,9 +42,9 @@ export function LeaderboardPage() {
 
   const getPeriodLabel = (p: LeaderboardPeriod) => {
     const labels = {
-      daily: 'Today',
-      weekly: 'This Week',
-      monthly: 'This Month',
+      daily: 'Current Week',
+      weekly: 'Last 4 Weeks',
+      monthly: 'Last 12 Weeks',
       all_time: 'All Time',
     };
     return labels[p];
@@ -155,7 +155,7 @@ export function LeaderboardPage() {
                         <div className="flex items-center justify-center space-x-1 text-orange-400">
                           <Flame className="w-4 h-4" />
                           <span className="text-sm font-medium">
-                            {actualEntry.current_streak} day streak
+                            {actualEntry.current_streak} week streak
                           </span>
                         </div>
                       )}
@@ -233,7 +233,7 @@ export function LeaderboardPage() {
                           <div className="flex items-center space-x-1 text-orange-400">
                             <Flame className="w-4 h-4" />
                             <span className="font-medium">
-                              {entry.current_streak} days
+                              {entry.current_streak} weeks
                             </span>
                           </div>
                         ) : (

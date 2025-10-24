@@ -4,13 +4,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Clock, TrendingUp, Calendar, Flame } from 'lucide-react';
 import type { ScreenTimeLog, UserStreak } from '../types';
+import { getWeekStartDate, formatWeekLabel } from '../lib/weekUtils';
 
 export function DashboardPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [todayMinutes, setTodayMinutes] = useState(0);
-  const [weekMinutes, setWeekMinutes] = useState(0);
-  const [monthMinutes, setMonthMinutes] = useState(0);
+  const [currentWeekMinutes, setCurrentWeekMinutes] = useState(0);
+  const [last4WeeksMinutes, setLast4WeeksMinutes] = useState(0);
+  const [last12WeeksMinutes, setLast12WeeksMinutes] = useState(0);
   const [streak, setStreak] = useState<UserStreak | null>(null);
   const [recentLogs, setRecentLogs] = useState<ScreenTimeLog[]>([]);
 
@@ -24,29 +25,33 @@ export function DashboardPage() {
     if (!user) return;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const currentWeekStart = getWeekStartDate(new Date()).toISOString().split('T')[0];
+      const last4WeeksStart = new Date();
+      last4WeeksStart.setDate(last4WeeksStart.getDate() - 21);
+      const last4WeeksStartStr = getWeekStartDate(last4WeeksStart).toISOString().split('T')[0];
+      const last12WeeksStart = new Date();
+      last12WeeksStart.setDate(last12WeeksStart.getDate() - 77);
+      const last12WeeksStartStr = getWeekStartDate(last12WeeksStart).toISOString().split('T')[0];
 
-      const [todayResult, weekResult, monthResult, streakResult, logsResult] = await Promise.all([
+      const [currentWeekResult, last4WeeksResult, last12WeeksResult, streakResult, logsResult] = await Promise.all([
         supabase
           .from('screen_time_logs')
           .select('minutes')
           .eq('user_id', user.id)
-          .eq('date', today)
+          .eq('week_start_date', currentWeekStart)
           .is('deleted_at', null)
           .maybeSingle(),
         supabase
           .from('screen_time_logs')
           .select('minutes')
           .eq('user_id', user.id)
-          .gte('date', weekAgo)
+          .gte('week_start_date', last4WeeksStartStr)
           .is('deleted_at', null),
         supabase
           .from('screen_time_logs')
           .select('minutes')
           .eq('user_id', user.id)
-          .gte('date', monthAgo)
+          .gte('week_start_date', last12WeeksStartStr)
           .is('deleted_at', null),
         supabase
           .from('user_streaks')
@@ -58,13 +63,13 @@ export function DashboardPage() {
           .select('*')
           .eq('user_id', user.id)
           .is('deleted_at', null)
-          .order('date', { ascending: false })
+          .order('week_start_date', { ascending: false })
           .limit(5),
       ]);
 
-      setTodayMinutes(todayResult.data?.minutes || 0);
-      setWeekMinutes(weekResult.data?.reduce((sum, log) => sum + log.minutes, 0) || 0);
-      setMonthMinutes(monthResult.data?.reduce((sum, log) => sum + log.minutes, 0) || 0);
+      setCurrentWeekMinutes(currentWeekResult.data?.minutes || 0);
+      setLast4WeeksMinutes(last4WeeksResult.data?.reduce((sum, log) => sum + log.minutes, 0) || 0);
+      setLast12WeeksMinutes(last12WeeksResult.data?.reduce((sum, log) => sum + log.minutes, 0) || 0);
       setStreak(streakResult.data);
       setRecentLogs(logsResult.data || []);
     } catch (error) {
@@ -83,13 +88,9 @@ export function DashboardPage() {
     return `${mins}m`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date);
+  const formatWeekRange = (weekStartDate: string) => {
+    const weekStart = new Date(weekStartDate);
+    return formatWeekLabel(weekStart);
   };
 
   if (loading) {
@@ -110,26 +111,26 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-400 text-sm">Today</span>
+            <span className="text-gray-400 text-sm">Current Week</span>
             <Clock className="w-5 h-5 text-blue-500" />
           </div>
-          <p className="text-3xl font-bold text-white">{formatMinutes(todayMinutes)}</p>
+          <p className="text-3xl font-bold text-white">{formatMinutes(currentWeekMinutes)}</p>
         </div>
 
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-400 text-sm">This Week</span>
+            <span className="text-gray-400 text-sm">Last 4 Weeks</span>
             <TrendingUp className="w-5 h-5 text-green-500" />
           </div>
-          <p className="text-3xl font-bold text-white">{formatMinutes(weekMinutes)}</p>
+          <p className="text-3xl font-bold text-white">{formatMinutes(last4WeeksMinutes)}</p>
         </div>
 
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-gray-400 text-sm">This Month</span>
+            <span className="text-gray-400 text-sm">Last 12 Weeks</span>
             <Calendar className="w-5 h-5 text-purple-500" />
           </div>
-          <p className="text-3xl font-bold text-white">{formatMinutes(monthMinutes)}</p>
+          <p className="text-3xl font-bold text-white">{formatMinutes(last12WeeksMinutes)}</p>
         </div>
 
         <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
@@ -137,8 +138,8 @@ export function DashboardPage() {
             <span className="text-gray-400 text-sm">Current Streak</span>
             <Flame className="w-5 h-5 text-orange-500" />
           </div>
-          <p className="text-3xl font-bold text-white">{streak?.current_streak || 0} days</p>
-          <p className="text-xs text-gray-500 mt-1">Best: {streak?.longest_streak || 0} days</p>
+          <p className="text-3xl font-bold text-white">{streak?.current_streak || 0} weeks</p>
+          <p className="text-xs text-gray-500 mt-1">Best: {streak?.longest_streak || 0} weeks</p>
         </div>
       </div>
 
@@ -173,7 +174,7 @@ export function DashboardPage() {
                   className="flex items-center justify-between p-3 bg-gray-700/50 rounded-lg"
                 >
                   <div>
-                    <p className="text-white font-medium">{formatDate(log.date)}</p>
+                    <p className="text-white font-medium">Week of {formatWeekRange(log.week_start_date)}</p>
                     {log.notes && (
                       <p className="text-sm text-gray-400 truncate max-w-xs">{log.notes}</p>
                     )}
@@ -195,7 +196,7 @@ export function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white font-semibold">Log Screen Time</p>
-                  <p className="text-sm text-blue-200">Add today's screen time</p>
+                  <p className="text-sm text-blue-200">Add this week's screen time</p>
                 </div>
                 <Clock className="w-6 h-6 text-white" />
               </div>

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Plus, CreditCard as Edit2, Trash2, Save, X, Loader2 } from 'lucide-react';
 import type { ScreenTimeLog } from '../types';
+import { getWeekOptions, formatWeekLabel, getWeekStartDate, type WeekOption } from '../lib/weekUtils';
 
 export function LogsPage() {
   const { user } = useAuth();
@@ -10,8 +11,9 @@ export function LogsPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const weekOptions = getWeekOptions(4);
   const [formData, setFormData] = useState({
-    date: new Date().toISOString().split('T')[0],
+    weekStartDate: weekOptions[0].weekStartDate,
     hours: '0',
     minutes: '0',
     notes: '',
@@ -34,7 +36,7 @@ export function LogsPage() {
         .select('*')
         .eq('user_id', user.id)
         .is('deleted_at', null)
-        .order('date', { ascending: false });
+        .order('week_start_date', { ascending: false });
 
       if (error) throw error;
       setLogs(data || []);
@@ -55,8 +57,8 @@ export function LogsPage() {
 
     const totalMinutes = parseInt(formData.hours) * 60 + parseInt(formData.minutes);
 
-    if (totalMinutes <= 0 || totalMinutes > 1440) {
-      setError('Please enter a valid time between 0 and 24 hours');
+    if (totalMinutes <= 0 || totalMinutes > 10080) {
+      setError('Please enter a valid time between 0 and 168 hours (7 days)');
       setSubmitting(false);
       return;
     }
@@ -66,7 +68,7 @@ export function LogsPage() {
         const { error } = await supabase
           .from('screen_time_logs')
           .update({
-            date: formData.date,
+            week_start_date: formData.weekStartDate,
             minutes: totalMinutes,
             notes: formData.notes || null,
           })
@@ -78,7 +80,7 @@ export function LogsPage() {
           .from('screen_time_logs')
           .insert({
             user_id: user.id,
-            date: formData.date,
+            week_start_date: formData.weekStartDate,
             minutes: totalMinutes,
             notes: formData.notes || null,
           });
@@ -101,7 +103,7 @@ export function LogsPage() {
     const minutes = log.minutes % 60;
 
     setFormData({
-      date: log.date,
+      weekStartDate: log.week_start_date,
       hours: hours.toString(),
       minutes: minutes.toString(),
       notes: log.notes || '',
@@ -129,7 +131,7 @@ export function LogsPage() {
 
   const resetForm = () => {
     setFormData({
-      date: new Date().toISOString().split('T')[0],
+      weekStartDate: weekOptions[0].weekStartDate,
       hours: '0',
       minutes: '0',
       notes: '',
@@ -148,14 +150,9 @@ export function LogsPage() {
     return `${mins}m`;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date);
+  const formatWeekRange = (weekStartDate: string) => {
+    const weekStart = new Date(weekStartDate);
+    return formatWeekLabel(weekStart);
   };
 
   if (loading) {
@@ -171,7 +168,7 @@ export function LogsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-white mb-2">Screen Time Logs</h1>
-          <p className="text-gray-400">Track and manage your daily screen time</p>
+          <p className="text-gray-400">Track and manage your weekly screen time</p>
         </div>
         {!showForm && (
           <button
@@ -200,18 +197,22 @@ export function LogsPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-300 mb-2">
-                Date
+              <label htmlFor="week" className="block text-sm font-medium text-gray-300 mb-2">
+                Week
               </label>
-              <input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                max={new Date().toISOString().split('T')[0]}
+              <select
+                id="week"
+                value={formData.weekStartDate}
+                onChange={(e) => setFormData({ ...formData, weekStartDate: e.target.value })}
                 required
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              >
+                {weekOptions.map((week) => (
+                  <option key={week.weekStartDate} value={week.weekStartDate}>
+                    {week.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -223,7 +224,7 @@ export function LogsPage() {
                   id="hours"
                   type="number"
                   min="0"
-                  max="24"
+                  max="168"
                   value={formData.hours}
                   onChange={(e) => setFormData({ ...formData, hours: e.target.value })}
                   className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -322,7 +323,7 @@ export function LogsPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <span className="text-white font-semibold">{formatDate(log.date)}</span>
+                    <span className="text-white font-semibold">Week of {formatWeekRange(log.week_start_date)}</span>
                     <span className="px-3 py-1 bg-blue-600 text-white text-sm font-medium rounded-full">
                       {formatMinutes(log.minutes)}
                     </span>
